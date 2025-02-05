@@ -8,7 +8,6 @@ import numpy as np
 import statsmodels.api as sm
 from datetime import timedelta
 
-# Streamlit App
 st.title("Blockchain Price Data Analysis App")
 
 # Upload dataset
