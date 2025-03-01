@@ -1,155 +1,81 @@
 import streamlit as st
 import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
-from sklearn.linear_model import LinearRegression
-from scipy.stats import zscore
 import numpy as np
-import statsmodels.api as sm
-from datetime import timedelta
+import plotly.express as px
 
-st.title("Blockchain Price Data Analysis App")
-
-# Upload dataset
-uploaded_file = st.file_uploader("Upload your dataset (CSV file):", type=["csv"])
-
-if uploaded_file is not None:
-    # Read dataset
-    data = pd.read_csv(uploaded_file)
-
-    st.subheader("Dataset Preview")
-    st.dataframe(data.head())
-
-    # Data Info
-    st.subheader("Dataset Information")
-    st.write("Number of Rows and Columns:", data.shape)
-    st.write("Column Names:", data.columns.tolist())
-
-    # Feature 1: Display Summary Statistics
-    st.subheader("Summary Statistics")
-    st.write(data.describe())
-
-    # Feature 2: Visualize Price Over Time
-    st.subheader("Price Over Time")
-    fig, ax = plt.subplots(figsize=(10, 5))
-    ax.plot(pd.to_datetime(data['Date']), data['Price'], label='Price', color='blue')
-    ax.set_title("Price Trend")
-    ax.set_xlabel("Date")
-    ax.set_ylabel("Price")
-    ax.legend()
-    st.pyplot(fig)
-
-    # Feature 3: Histogram of Price
-    st.subheader("Price Distribution")
-    fig, ax = plt.subplots()
-    ax.hist(data['Price'], bins=20, color='skyblue', edgecolor='black')
-    ax.set_title("Price Distribution")
-    ax.set_xlabel("Price")
-    ax.set_ylabel("Frequency")
-    st.pyplot(fig)
-
-    # Feature 4: Filter Data by Date Range
-    st.subheader("Filter Data by Date Range")
-    start_date_input = st.date_input("Start Date:", value=pd.to_datetime(data['Date']).min())
-    end_date_input = st.date_input("End Date:", value=pd.to_datetime(data['Date']).max())
-    start_date = pd.to_datetime(start_date_input)
-    end_date = pd.to_datetime(end_date_input)
-
-    if start_date <= end_date:
-        filtered_data = data[(pd.to_datetime(data['Date']) >= start_date) & 
-                             (pd.to_datetime(data['Date']) <= end_date)]
-        st.write(f"Filtered Data ({start_date.date()} to {end_date.date()}):")
-        st.dataframe(filtered_data)
-    else:
-        st.error("Start Date must be before End Date!")
-
-    # Feature 5: Moving Average Visualization
-    st.subheader("Moving Average")
-    window = st.slider("Select Moving Average Window (days):", min_value=1, max_value=30, value=5)
-    data['Moving Average'] = data['Price'].rolling(window=window).mean()
-    fig, ax = plt.subplots(figsize=(10, 5))
-    ax.plot(pd.to_datetime(data['Date']), data['Price'], label='Price', color='blue')
-    ax.plot(pd.to_datetime(data['Date']), data['Moving Average'], label=f'{window}-day Moving Average', color='orange')
-    ax.set_title("Price with Moving Average")
-    ax.set_xlabel("Date")
-    ax.set_ylabel("Price")
-    ax.legend()
-    st.pyplot(fig)
-
-    # Feature 6: Download Filtered Data
-    st.subheader("Download Filtered Data")
-    csv = filtered_data.to_csv(index=False)
-    st.download_button(
-        label="Download Filtered Data as CSV",
-        data=csv,
-        file_name='filtered_data.csv',
-        mime='text/csv'
-    )
-
-    # Simple Price Prediction Model
-    st.subheader("Simple Price Prediction Model")
-    model_data = data[['Date', 'Price']].dropna()
-    model_data['Date'] = pd.to_datetime(model_data['Date'])
-    model_data['Date'] = model_data['Date'].map(lambda x: x.toordinal())
-
-    X = model_data[['Date']]
-    y = model_data['Price']
-
-    model = LinearRegression()
-    model.fit(X, y)
-
-    future_date = pd.to_datetime("2025-01-01").toordinal()
-    predicted_price = model.predict([[future_date]])
-    st.write(f"Predicted Price on 2025-01-01: ${predicted_price[0]:.2f}")
-
-    # Time Series Forecasting with SARIMAX
-    st.subheader("Time Series Forecasting (SARIMAX)")
-    ts_data = data[['Date', 'Price']].dropna()
-    ts_data['Date'] = pd.to_datetime(ts_data['Date'])
-    ts_data.set_index('Date', inplace=True)
-
-    # Fit SARIMAX model
-    model_sarimax = sm.tsa.statespace.SARIMAX(ts_data['Price'], order=(1, 1, 1), seasonal_order=(1, 1, 1, 12))
-    results_sarimax = model_sarimax.fit()
-
-    # Forecasting for the next 365 days
-    forecast = results_sarimax.get_forecast(steps=365)
-    forecast_index = [ts_data.index[-1] + timedelta(days=i) for i in range(1, 366)]
-    forecast_values = forecast.predicted_mean
-
-    # Plot forecast
-    fig, ax = plt.subplots(figsize=(10, 5))
-    ax.plot(ts_data.index, ts_data['Price'], label='Historical Price', color='blue')
-    ax.plot(forecast_index, forecast_values, label='Forecasted Price', color='orange')
-    ax.set_title("Price Forecasting (SARIMAX)")
-    ax.set_xlabel("Date")
-    ax.set_ylabel("Price")
-    ax.legend()
-    st.pyplot(fig)
-
-    # Price Anomaly Detection (Z-score)
-    st.subheader("Price Anomaly Detection")
-    data['Z-score'] = zscore(data['Price'])
-    anomaly_data = data[data['Z-score'].abs() > 3]
-    st.write(f"Anomalous Prices (Z-score > 3):")
-    st.dataframe(anomaly_data[['Date', 'Price', 'Z-score']])
-
-    # Price Heatmap of per day and per hour separately
-    st.subheader("Price Heatmap (Per Day & Per Hour)")
-    data['Hour'] = pd.to_datetime(data['Date']).dt.hour
-    hourly_avg = data.groupby(['Date', 'Hour'])['Price'].mean().unstack().fillna(0)
-    fig, ax = plt.subplots(figsize=(12, 6))
-    sns.heatmap(hourly_avg, cmap="coolwarm", ax=ax)
-    ax.set_title("Price Heatmap (Per Hour)")
-    st.pyplot(fig)
-
-    # Real-time Data Updates (Simulated)
-    st.subheader("Real-time Data Updates (Simulated)")
-    real_time_data = data.tail(10)
-    st.write("Latest Data:")
-    st.dataframe(real_time_data)
-
+def load_data():
+    """Function to load and preprocess the dataset."""
+    try:
+        df = pd.read_csv("bitcoin_data.csv")  # Update with actual file path
+    except Exception as e:
+        st.error(f"Error loading dataset: {e}")
+        return None
     
+    df.replace({"": np.nan}, inplace=True)  # Handle blank spaces
+    df.fillna(method='ffill', inplace=True)  # Forward fill missing values
+    df.fillna(method='bfill', inplace=True)  # Backward fill if needed
+    df['time'] = pd.to_datetime(df['time'], errors='coerce')
+    df['price'] = pd.to_numeric(df['price'], errors='coerce')
+    df['remaining_size'] = pd.to_numeric(df['remaining_size'], errors='coerce')
+    df.dropna(inplace=True)
+    return df
 
-else:
-    st.info("Please upload a dataset to proceed.")
+def display_summary(df):
+    """Displays key statistics of the dataset."""
+    st.subheader("Dataset Overview")
+    st.write(df.head(10))
+    st.write("Summary Statistics:")
+    st.write(df.describe())
+
+def price_trend(df):
+    """Plots Bitcoin price trends over time."""
+    st.subheader("Bitcoin Price Trends")
+    fig = px.line(df, x='time', y='price', title='Bitcoin Price Over Time')
+    st.plotly_chart(fig)
+
+def trade_volume_analysis(df):
+    """Analyzes buy vs sell trades."""
+    st.subheader("Trade Volume Analysis")
+    trade_counts = df['side'].value_counts()
+    fig = px.bar(trade_counts, x=trade_counts.index, y=trade_counts.values, title='Trade Volume: Buy vs Sell')
+    st.plotly_chart(fig)
+
+def order_status_analysis(df):
+    """Displays order status breakdown."""
+    st.subheader("Order Status Breakdown")
+    order_status_counts = df['reason'].value_counts()
+    fig = px.pie(order_status_counts, names=order_status_counts.index, values=order_status_counts.values, title='Order Status Distribution')
+    st.plotly_chart(fig)
+
+def bid_price_distribution(df):
+    """Displays a histogram of bid prices."""
+    st.subheader("Bid Price Distribution")
+    fig = px.histogram(df, x='bid', title='Bid Price Distribution', nbins=50)
+    st.plotly_chart(fig)
+
+def recommendation_system(df):
+    """Provides buy, sell, or hold recommendations based on price trends."""
+    st.subheader("Bitcoin Trading Recommendation")
+    avg_price = df['price'].mean()
+    last_price = df['price'].iloc[-1]
+    
+    if last_price < avg_price * 0.95:
+        st.success("🔵 Recommendation: Consider Buying - Price is below average")
+    elif last_price > avg_price * 1.05:
+        st.warning("🔴 Recommendation: Consider Selling - Price is above average")
+    else:
+        st.info("🟡 Recommendation: Hold - Price is stable")
+
+def main():
+    st.title("Bitcoin Analysis & Recommendation System")
+    df = load_data()
+    if df is not None:
+        display_summary(df)
+        price_trend(df)
+        trade_volume_analysis(df)
+        order_status_analysis(df)
+        bid_price_distribution(df)
+        recommendation_system(df)
+
+if __name__ == "__main__":
+    main()
